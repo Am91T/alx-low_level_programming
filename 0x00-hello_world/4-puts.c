@@ -1,7 +1,8 @@
 #include <stdio.h>
 /**
-*main - this is quote
-*@return 0 on successful execution.
+* main - Entry point
+*
+* Return: Always 0 (Success)
 */
 int main(void)
 {
