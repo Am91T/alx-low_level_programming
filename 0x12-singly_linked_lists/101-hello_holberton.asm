@@ -1,16 +1,16 @@
 section .data
-	hello db "Hello, Holberton", 0
-	format db "%s", 10, 0  ; Add a newline character after the string
+    hello db "Hello, Holberton", 0
+    format db "%s", 0
 
 section .text
-	global main
+    global main
 
-	extern printf
+    extern printf
 
 main:
-	push    rbp
-	mov     rdi, format
-	mov     rsi, hello
-	call    printf
-	pop     rbp
-	ret
+    push rbp
+    mov rdi, format
+    mov rsi, hello
+    call printf
+    pop rbp
+    ret
