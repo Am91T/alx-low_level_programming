@@ -1,65 +1,106 @@
 #include "main.h"
 
-/**
- * error_exit - print an error message and exit with the given status code
- * @msg: the error message
- * @status: the exit status code
- */
-void error_exit(const char *msg, int status)
+void print_error(const char *message)
 {
-	dprintf(STDERR_FILENO, "%s\n", msg);
-	exit(status);
+	dprintf(STDERR_FILENO, "Error: %s\n", message);
+	exit(98);
 }
 
-/**
- * print_elf_header - print the ELF header information
- * @header: pointer to the ELF header structure
- */
-void print_elf_header(Elf64_Ehdr *header)
+void check_read(int fd, void *buf, size_t size)
 {
-	printf("ELF Header:\n");
-	printf("  Magic:   %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x\n",
-		header->e_ident[0], header->e_ident[1], header->e_ident[2],
-		header->e_ident[3], header->e_ident[4], header->e_ident[5],
-		header->e_ident[6], header->e_ident[7], header->e_ident[8],
-		header->e_ident[9], header->e_ident[10], header->e_ident[11],
-		header->e_ident[12], header->e_ident[13], header->e_ident[14],
-		header->e_ident[15]);
-	printf("  Class:                             ");
-	if (header->e_ident[EI_CLASS] == ELFCLASS32)
-		printf("ELF32\n");
-	else if (header->e_ident[EI_CLASS] == ELFCLASS64)
-		printf("ELF64\n");
+	if (read(fd, buf, size) != size)
+		print_error("Cannot read ELF header");
 }
 
-/**
- * main - entry point for the elf_header program
- * @argc: the number of command-line arguments
- * @argv: an array of command-line arguments
- *
- * Return: 0 on success, or exit with a specific code on failure
- */
+char *get_elf_info(Elf64_Ehdr *header, int index)
+{
+	char *info;
+	switch (index)
+	{
+		case 0:
+			info = strdup("ELF32");
+			break;
+		case 1:
+			info = strdup("ELF64");
+			break;
+		case 2:
+			info = strdup("2's complement, little endian");
+			break;
+		case 3:
+			info = strdup("2's complement, big endian");
+			break;
+		case 4:
+			info = strdup("UNIX - System V");
+			break;
+		case 5:
+			info = strdup("HP-UX");
+			break;
+		case 6:
+			info = strdup("NetBSD");
+			break;
+		case 7:
+			info = strdup("Linux");
+			break;
+		case 8:
+			info = strdup("Solaris");
+			break;
+		case 9:
+			info = strdup("REL (Relocatable file)");
+			break;
+		case 10:
+			info = strdup("EXEC (Executable file)");
+			break;
+		case 11:
+			info = strdup("DYN (Shared object file)");
+			break;
+		case 12:
+			info = strdup("CORE (Core file)");
+			break;
+		default:
+			info = strdup("<unknown>");
+	}
+	return info;
+}
+
 int main(int argc, char *argv[])
 {
 	int fd;
 	Elf64_Ehdr header;
 
 	if (argc != 2)
-		error_exit("Usage: elf_header elf_filename", 98);
+		print_error("Usage: elf_header elf_filename");
 
 	fd = open(argv[1], O_RDONLY);
 	if (fd == -1)
-		error_exit("Error: Cannot read file", 98);
+		print_error("Cannot open file");
 
-	if (read(fd, &header, sizeof(header)) != sizeof(header))
-		error_exit("Error: Cannot read ELF header", 98);
+	check_read(fd, &header, sizeof(header));
 
-	if (lseek(fd, 0, SEEK_SET) == -1)
-		error_exit("Error: Cannot seek to beginning of file", 98);
+	if (memcmp(header.e_ident, ELFMAG, SELFMAG) != 0)
+		print_error("Not an ELF file");
 
-	print_elf_header(&header);
+	printf("ELF Header:\n  Magic:   ");
+	for (int i = 0; i < EI_NIDENT; i++)
+		printf("%02x%c", header.e_ident[i], i == EI_NIDENT - 1 ? '\n' : ' ');
+
+	char *class_info = get_elf_info(&header, header.e_ident[EI_CLASS]);
+	char *data_info = get_elf_info(&header, header.e_ident[EI_DATA]);
+	char *osabi_info = get_elf_info(&header, header.e_ident[EI_OSABI]);
+	char *type_info = get_elf_info(&header, header.e_type);
+
+	printf("  Class:                             %s\n", class_info);
+	printf("  Data:                              %s\n", data_info);
+	printf("  Version:                           %u (current)\n", header.e_version);
+	printf("  OS/ABI:                            %s\n", osabi_info);
+	printf("  ABI Version:                       %u\n", header.e_ident[EI_ABIVERSION]);
+	printf("  Type:                              %s (%s)\n", type_info, get_elf_info(&header, 9 + header.e_type));
+	printf("  Entry point address:               0x%lx\n", (unsigned long)header.e_entry);
+
+	free(class_info);
+	free(data_info);
+	free(osabi_info);
+	free(type_info);
 
 	close(fd);
-
 	return (0);
 }
