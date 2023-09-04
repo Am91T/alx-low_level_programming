@@ -17,7 +17,9 @@ void print_error_and_exit(const char *message)
  */
 int open_and_check_elf_file(const char *filename)
 {
-	int fd = open(filename, O_RDONLY);
+	int fd;
+
+	fd = open(filename, O_RDONLY);
 
 	if (fd == -1)
 	{
@@ -33,10 +35,12 @@ int open_and_check_elf_file(const char *filename)
  */
 void read_elf_header(int fd, Elf64_Ehdr *header)
 {
-	ssize_t result = read(fd, header, sizeof(Elf64_Ehdr));
+	ssize_t result;
+
+	result = read(fd, header, sizeof(Elf64_Ehdr));
 
 	if (result != (ssize_t)sizeof(Elf64_Ehdr) ||
-			memcmp(header->e_ident, ELFMAG, SELFMAG) != 0)
+		memcmp(header->e_ident, ELFMAG, SELFMAG) != 0)
 	{
 		print_error_and_exit("Not a valid ELF file");
 	}
@@ -48,19 +52,20 @@ void read_elf_header(int fd, Elf64_Ehdr *header)
  */
 void print_elf_header_info(const Elf64_Ehdr *header)
 {
+	int i;
+
 	printf("ELF Header:\n\tMagic:\t\t");
-	for (int i = 0; i < EI_NIDENT; i++)
+	for (i = 0; i < EI_NIDENT; i++)
 	{
 		printf("%02x%c", header->e_ident[i], i == EI_NIDENT - 1 ? '\n' : ' ');
 	}
 
-	printf("\tClass:\t\t\t%s\n", get_elf_info(header->e_ident[EI_CLASS]));
-	printf("\tData:\t\t\t%s\n", get_elf_info(header->e_ident[EI_DATA]));
+	printf("\tClass:\t\t\t%d\n", header->e_ident[EI_CLASS]);
+	printf("\tData:\t\t\t%d\n", header->e_ident[EI_DATA]);
 	printf("\tVersion:\t\t%u (current)\n", header->e_version);
-	printf("\tOS/ABI:\t\t\t%s\n", get_elf_info(header->e_ident[EI_OSABI]));
+	printf("\tOS/ABI:\t\t\t%d\n", header->e_ident[EI_OSABI]);
 	printf("\tABI Version:\t\t%u\n", header->e_ident[EI_ABIVERSION]);
-	printf("\tType:\t\t\t%s (%s)\n", get_elf_info(header->e_type),
-		   get_elf_info(9 + header->e_type));
+	printf("\tType:\t\t\t%u (%u)\n", header->e_type, 9 + header->e_type);
 }
 
 /**
@@ -68,17 +73,18 @@ void print_elf_header_info(const Elf64_Ehdr *header)
  * @argc: The number of command-line arguments.
  * @argv: An array of command-line argument strings.
  * Return: 0 on success, non-zero on failure.
- *
  */
 int main(int argc, char *argv[])
 {
+	int fd;
+	Elf64_Ehdr header;
+
 	if (argc != 2)
 	{
 		print_error_and_exit("Usage: elf_header elf_filename");
 	}
 
-	int fd = open_and_check_elf_file(argv[1]);
-	Elf64_Ehdr header;
+	fd = open_and_check_elf_file(argv[1]);
 	read_elf_header(fd, &header);
 
 	print_elf_header_info(&header);
