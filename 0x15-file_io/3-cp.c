@@ -1,85 +1,87 @@
-#include "main.h"
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-void display_error(const char *message);
-
-void copy_file_contents(int from, int to);
-
-void close_files(int fd1, int fd2);
+#include <unistd.h>
+#include <fcntl.h>
 
 /**
-* display_error - Display an error message and exit with a specific code.
-* @message: The error message to display.
+* print_usage_error - print usage error message and exit
+* @prog_name: the name of the program
 */
-void display_error(const char *message)
+void print_usage_error(const char *prog_name)
 {
-	dprintf(2, "%s", message);
-	exit(1);
+	dprintf(STDERR_FILENO, "Usage: %s file_from file_to\n", prog_name);
+	exit(97);
 }
 
 /**
-* main - Entry point for the cp program.
-* @ac: The number of arguments.
-* @av: An array of arguments.
-* Return: 0 on success, or an error code on failure.
+* print_read_error - print read error message and exit
+* @filename: the name of the file that couldn't be read
 */
-int main(int ac, char **av)
+void print_read_error(const char *filename)
 {
-	int fd_from, fd_to;
-
-	if (ac != 3)
-		display_error("Usage: cp file_from file_to\n");
-
-	fd_from = open(av[1], O_RDONLY);
-	if (fd_from == -1)
-		display_error("Error: Can't read from file\n");
-
-	fd_to = open(av[2], O_WRONLY | O_CREAT | O_TRUNC, 0664);
-	if (fd_to == -1)
-		display_error("Error: Can't write to file\n");
-
-	copy_file_contents(fd_from, fd_to);
-
-	close_files(fd_from, fd_to);
-
-	return (0);
+	dprintf(STDERR_FILENO, "Error: Can't read from file %s\n", filename);
+	exit(98);
 }
 
 /**
-* copy_file_contents - Copy the contents of one file to another.
-* @from: The source file descriptor.
-* @to: The destination file descriptor.
+* print_write_error - print write error message and exit
+* @filename: the name of the file that couldn't be written
 */
-void copy_file_contents(int from, int to)
+void print_write_error(const char *filename)
 {
+	dprintf(STDERR_FILENO, "Error: Can't write to %s\n", filename);
+	exit(99);
+}
+
+/**
+* print_close_error - print close error message and exit
+* @fd: the file descriptor that couldn't be closed
+*/
+void print_close_error(int fd)
+{
+	dprintf(STDERR_FILENO, "Error: Can't close fd %d\n", fd);
+	exit(100);
+}
+
+/**
+* main - entry point for the cp program
+* @argc: the number of command-line arguments
+* @argv: an array of command-line arguments
+*
+* Return: 0 on success, or exit with a specific code on failure
+*/
+int main(int argc, char *argv[])
+{
+	int file_from, file_to, read_result, write_result;
+
 	char buffer[1024];
 
-	ssize_t bytes_read, bytes_written;
+	if (argc != 3)
+		print_usage_error(argv[0]);
 
-	while ((bytes_read = read(from, buffer, sizeof(buffer)) > 0))
+	file_from = open(argv[1], O_RDONLY);
+	if (file_from == -1)
+		print_read_error(argv[1]);
+
+	file_to = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0664);
+	if (file_to == -1)
+		print_write_error(argv[2]);
+
+	while ((read_result = read(file_from, buffer, 1024)) > 0)
 	{
-		bytes_written = write(to, buffer, bytes_read);
-		if (bytes_written == -1)
-			display_error("Error: Can't write to file\n");
+		write_result = write(file_to, buffer, read_result);
+		if (write_result == -1)
+			print_write_error(argv[2]);
 	}
 
-	if (bytes_read == -1)
-		display_error("Error: Can't read from file\n");
-}
+	if (read_result == -1)
+		print_read_error(argv[1]);
 
-/**
-* close_files - Close file descriptors.
-* @fd1: The first file descriptor to close.
-* @fd2: The second file descriptor to close.
-*/
-void close_files(int fd1, int fd2)
-{
-	close(fd1);
-	close(fd2);
+	if (close(file_from) == -1)
+		print_close_error(file_from);
+
+	if (close(file_to) == -1)
+		print_close_error(file_to);
+
+	return (0);
 }
